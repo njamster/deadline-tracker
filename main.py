@@ -43,10 +43,13 @@ class Tracker():
                 print('%s: %s' % (row['date'], row['description']))
 
 
-    def list_tasks(self, category=None):
-        if category:
-            category = (category,)
-            for row in self.cursor.execute('SELECT * FROM tasks WHERE category=? ORDER BY date,time', category):
+    def list_tasks(self, categories=None):
+        if categories:
+            query = 'SELECT * FROM tasks WHERE category IN ('
+            query += ','.join('?' for _ in categories)
+            query += ') ORDER BY date, time'
+
+            for row in self.cursor.execute(query, categories):
                 self.print_row(row)
         else:
             for row in self.cursor.execute('SELECT * FROM tasks ORDER BY date, time'):
@@ -65,14 +68,14 @@ if __name__ == "__main__":
     parser_op_add.add_argument('time', action='store', nargs='?')
     parser_op_add.add_argument('category', action='store', nargs='?')
 
-    parser_op_add = subparsers.add_parser('list', help='list a category')
-    parser_op_add.add_argument('category', action='store')
+    parser_op_add = subparsers.add_parser('listonly', help='list a category')
+    parser_op_add.add_argument('category', nargs='+', action='store')
 
     args = parser.parse_args()
 
     if args.operation == 'add':
         tracker.add_task(args.description, args.date, args.time, args.category)
-    elif args.operation == 'list':
+    elif args.operation == 'listonly':
         tracker.list_tasks(args.category)
     else:
         tracker.list_tasks()
