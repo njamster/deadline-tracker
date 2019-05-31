@@ -1,7 +1,5 @@
 import sqlite3
 import argparse
-
-from dateutil.relativedelta import relativedelta
 import datetime
 
 
@@ -13,6 +11,8 @@ class Tracker():
         self.cursor.execute('CREATE TABLE IF NOT EXISTS tasks (date TEXT, time TEXT, category TEXT, description TEXT)')
         self.db_conn.commit()
 
+        self.now = datetime.datetime.now()
+
 
     def add_task(self, description, date, time=None, category=None):
         new_task = (date, time, category, description)
@@ -20,31 +20,44 @@ class Tracker():
         self.db_conn.commit()
 
 
-    def print_row(self, row):
-        today = datetime.date.today()
-
+    def compute_time_left(self, row):
         if row['time']:
             deadline = datetime.datetime.strptime(row['date'] + ' ' + row['time'], '%Y-%m-%d %H:%M')
-            time_left = relativedelta(deadline, today)
-            print(time_left)
-            
-            if row['category']:
-                print('%s, %s: [%s] %s' % (row['date'], row['time'], row['category'], row['description']))
-            else:
-                print('%s, %s: %s' % (row['date'], row['time'], row['description']))
         else:
             deadline = datetime.datetime.strptime(row['date'], '%Y-%m-%d')
-            time_left = relativedelta(deadline, today)
-            print(time_left)
 
-            if row['category']:
-                print('%s: [%s] %s' % (row['date'], row['category'], row['description']))
+        time_left = deadline - self.now
+
+        if time_left.days < 0:
+            # TODO: remove row from db (can this be done automatically?)
+            return -1
+        else:
+            days    = time_left.days
+            hours   = time_left.seconds // 3600
+            minutes = (time_left.seconds // 60) % 60
+
+            if days > 0:
+                return '%02.dd' % days
+            elif hours > 0:
+                return '%02.dh' % hours
             else:
-                print('%s: %s' % (row['date'], row['description']))
+                return '%02.dm' % minutes
+
+
+    def print_row(self, row):
+        time_left = self.compute_time_left(row)
+        if time_left == -1:
+            return
+
+        if row['category']:
+            print('%s left: [%s] %s' % (time_left, row['category'], row['description']))
+        else:
+            print('%s left: %s' % (time_left, row['description']))
 
 
     def list_tasks(self, categories=None):
         if categories:
+            # TODO: how to list only tasks _without_ a category?
             query = 'SELECT * FROM tasks WHERE category IN ('
             query += ','.join('?' for _ in categories)
             query += ') ORDER BY date, time'
@@ -65,6 +78,7 @@ if __name__ == "__main__":
     parser_op_add = subparsers.add_parser('add', help='add a new task')
     parser_op_add.add_argument('description', action='store')
     parser_op_add.add_argument('date', action='store')
+    # TODO: it's not possible to only pass the category but not the time as an argument
     parser_op_add.add_argument('time', action='store', nargs='?')
     parser_op_add.add_argument('category', action='store', nargs='?')
 
