@@ -2,15 +2,17 @@ import sqlite3
 import argparse
 import datetime
 
+import itertools
 
 class Tracker():
-    def __init__(self, name):
+    def __init__(self, name, group_by_category):
         self.db_conn = sqlite3.connect(name)
         self.db_conn.row_factory = sqlite3.Row
         self.cursor = self.db_conn.cursor()
         self.cursor.execute('CREATE TABLE IF NOT EXISTS tasks (date TEXT, time TEXT, category TEXT, description TEXT)')
         self.db_conn.commit()
 
+        self.group_by_category = group_by_category
         self.now = datetime.datetime.now()
 
 
@@ -44,12 +46,12 @@ class Tracker():
                 return (str(minutes) + 'm').rjust(3, ' ')
 
 
-    def print_row(self, row):
+    def print_row(self, row, print_category=True):
         time_left = self.compute_time_left(row)
         if time_left == -1:
             return
 
-        if row['category']:
+        if print_category and row['category']:
             dot_number = 60 - len(row['description']) - len(row['category']) - 3
             print('[%s] %s %s %s left' % (row['category'], row['description'], '.' * dot_number, time_left))
         else:
@@ -58,23 +60,37 @@ class Tracker():
 
 
     def list_tasks(self, categories=None):
-        # TODO: print grouped by category
         if categories:
             # TODO: how to list only tasks _without_ a category?
             query = 'SELECT * FROM tasks WHERE category IN ('
             query += ','.join('?' for _ in categories)
-            query += ') ORDER BY date, time'
+            query += ') ORDER BY category, date, time'
 
-            for row in self.cursor.execute(query, categories):
-                self.print_row(row)
+            results = self.cursor.execute(query, categories)
+
+            if self.group_by_category:
+                for category, rows in itertools.groupby(results, key=lambda r: r[2]):
+                    print('\n%s:' % category)
+                    for row in rows:
+                        self.print_row(row, False)
+            else:
+                for row in results:
+                    self.print_row(row)
         else:
-            for row in self.cursor.execute('SELECT * FROM tasks ORDER BY date, time'):
-                self.print_row(row)
+            query = 'SELECT * FROM tasks ORDER BY category, date, time'
+            results = self.cursor.execute(query)
+
+            if self.group_by_category:
+                for category, rows in itertools.groupby(results, key=lambda r: r[2]):
+                    print('\n%s:' % category)
+                    for row in rows:
+                        self.print_row(row, False)
+            else:
+                for row in results:
+                    self.print_row(row)
 
 
 if __name__ == "__main__":
-    tracker = Tracker('example.db')
-
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='operation')
 
@@ -88,7 +104,11 @@ if __name__ == "__main__":
     parser_op_add = subparsers.add_parser('listonly', help='list a category')
     parser_op_add.add_argument('category', nargs='+', action='store')
 
+    parser.add_argument('-G', '--group-by-category', dest='group', action='store_true')
+
     args = parser.parse_args()
+
+    tracker = Tracker('example.db', args.group)
 
     if args.operation == 'add':
         tracker.add_task(args.description, args.date, args.time, args.category)
