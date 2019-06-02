@@ -37,11 +37,11 @@ class Tracker():
             minutes = (time_left.seconds // 60) % 60
 
             if days > 0:
-                return '%02.dd' % days
+                return (str(days) + 'd').rjust(3, ' ')
             elif hours > 0:
-                return '%02.dh' % hours
+                return (str(hours) + 'h').rjust(3, ' ')
             else:
-                return '%02.dm' % minutes
+                return (str(minutes) + 'm').rjust(3, ' ')
 
 
     def print_row(self, row):
@@ -50,12 +50,15 @@ class Tracker():
             return
 
         if row['category']:
-            print('%s left: [%s] %s' % (time_left, row['category'], row['description']))
+            dot_number = 60 - len(row['description']) - len(row['category']) - 3
+            print('[%s] %s %s %s left' % (row['category'], row['description'], '.' * dot_number, time_left))
         else:
-            print('%s left: %s' % (time_left, row['description']))
+            dot_number = 60 - len(row['description'])
+            print('%s %s %s left' % (row['description'], '.' * dot_number, time_left))
 
 
     def list_tasks(self, categories=None):
+        # TODO: print grouped by category
         if categories:
             # TODO: how to list only tasks _without_ a category?
             query = 'SELECT * FROM tasks WHERE category IN ('
