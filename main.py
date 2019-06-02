@@ -70,11 +70,16 @@ class Tracker():
 
 
     def list_tasks(self, categories=None):
+        # TODO: how to list only tasks _without_ a category?
+
         if categories:
-            # TODO: how to list only tasks _without_ a category?
             query = 'SELECT * FROM tasks WHERE category IN ('
             query += ','.join('?' for _ in categories)
-            query += ') ORDER BY category, date, time'
+
+            if self.group_by_category:
+                query += ') ORDER BY category, date, time'
+            else:
+                query += ') ORDER BY date, time'
 
             results = self.cursor.execute(query, categories)
 
@@ -87,7 +92,11 @@ class Tracker():
                 for row in results:
                     self.print_row(row)
         else:
-            query = 'SELECT * FROM tasks ORDER BY category, date, time'
+            if self.group_by_category:
+                query = 'SELECT * FROM tasks ORDER BY category, date, time'
+            else:
+                query = 'SELECT * FROM tasks ORDER BY date, time'
+
             results = self.cursor.execute(query)
 
             if self.group_by_category:
