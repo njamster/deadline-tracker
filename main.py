@@ -12,6 +12,10 @@ class Tracker():
         self.cursor.execute('CREATE TABLE IF NOT EXISTS tasks (date TEXT, time TEXT, category TEXT, description TEXT)')
         self.db_conn.commit()
 
+        # delete all records with dates that already passed
+        self.cursor.execute("DELETE FROM tasks WHERE date <= datetime('now')");
+        self.db_conn.commit()
+
         self.group_by_category = group_by_category
         self.now = datetime.datetime.now()
 
@@ -22,6 +26,16 @@ class Tracker():
         self.db_conn.commit()
 
 
+    def edit_task(self):
+        # TODO
+        pass
+
+
+    def delete_task(self):
+        # TODO
+        pass
+
+
     def compute_time_left(self, row):
         if row['time']:
             deadline = datetime.datetime.strptime(row['date'] + ' ' + row['time'], '%Y-%m-%d %H:%M')
@@ -30,33 +44,29 @@ class Tracker():
 
         time_left = deadline - self.now
 
-        if time_left.days < 0:
-            # TODO: remove row from db (can this be done automatically?)
-            return -1
-        else:
-            days    = time_left.days
-            hours   = time_left.seconds // 3600
-            minutes = (time_left.seconds // 60) % 60
+        days    = time_left.days
+        hours   = time_left.seconds // 3600
+        minutes = (time_left.seconds // 60) % 60
 
-            if days > 0:
-                return (str(days) + 'd').rjust(3, ' ')
-            elif hours > 0:
-                return (str(hours) + 'h').rjust(3, ' ')
-            else:
-                return (str(minutes) + 'm').rjust(3, ' ')
+        if days < 0:
+            return '  missed' 
+        if days > 0:
+            return (str(days) + 'd left').rjust(8, ' ')
+        elif hours > 0:
+            return (str(hours) + 'h left').rjust(8, ' ')
+        else:
+            return (str(minutes) + 'm left').rjust(8, ' ')
 
 
     def print_row(self, row, print_category=True):
         time_left = self.compute_time_left(row)
-        if time_left == -1:
-            return
 
         if print_category and row['category']:
             dot_number = 60 - len(row['description']) - len(row['category']) - 3
-            print('[%s] %s %s %s left' % (row['category'], row['description'], '.' * dot_number, time_left))
+            print('[%s] %s %s %s' % (row['category'], row['description'], '.' * dot_number, time_left))
         else:
             dot_number = 60 - len(row['description'])
-            print('%s %s %s left' % (row['description'], '.' * dot_number, time_left))
+            print('%s %s %s' % (row['description'], '.' * dot_number, time_left))
 
 
     def list_tasks(self, categories=None):
